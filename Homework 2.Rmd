@@ -1,11 +1,12 @@
 ---
-title: "Homework 2"
-author: "PSTAT 131/231"
+title: "Homework 1"
+author: "PSTAT 231"
+date: '2022-10-16'
 output:
-    html_document:
-      toc: true
-      toc_float: true
-      code_folding: show
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: show
 ---
 
 ```{r setup, include=FALSE}
@@ -25,17 +26,58 @@ The full abalone data set is located in the `\data` subdirectory. Read it into *
 
 Make sure you load the `tidyverse` and `tidymodels`!
 
+
+First, we need to load the libraries needed for the homework and the dataset to be used:
+
+```{r}
+library(ggplot2)
+library(tidyverse)
+library(tidymodels)
+abalone <- read_csv(file = "data/abalone.csv")
+```
+
 ### Question 1
 
 Your goal is to predict abalone age, which is calculated as the number of rings plus 1.5. Notice there currently is no `age` variable in the data set. Add `age` to the data set.
 
 Assess and describe the distribution of `age`.
 
+First, we need to create the `age` variable:
+
+```{r}
+abalone <- abalone %>% 
+  mutate(age = rings + 1.5)
+```
+
+Now, we can run a histogram and a summary statistics table to check the distribution of `age`:
+
+```{r}
+histogram_age = ggplot(abalone) + geom_histogram(aes(age), colour = 'navyblue', fill = 'light blue') + labs(title = "Frequency of age of abalone", y = 'Frequency', x = 'Age')
+histogram_age
+
+summary(abalone$age)
+```
+
+Based on the histogram above, it seems that `age` is normally distributed with the right tail being a litle bit longer than the left one. The summary statistics table shows that the mean is higher than the median which indicates that the distribution of `age` is positively skewed to a certain degree.
+
+Finally, the summary statistics table shows that most abalone in the dataset are between about 9 and 13 years old (based on the values of the 25th and 75th percentile). It also shows that the range of `age` is quite wide as it goes from 2 to 31 years old.
+
+
 ### Question 2
 
 Split the abalone data into a training set and a testing set. Use stratified sampling. You should decide on appropriate percentages for splitting the data.
 
 *Remember that you'll need to set a seed at the beginning of the document to reproduce your results.*
+
+Following what we did in lab 2, we can use 3435 as the seed and 80% as the percentage for modeling/analysis. Finally, we would use the `age` variable for our stratified sampling.
+
+```{r}
+set.seed(3435)
+abalone_split <- initial_split(abalone, prop = 0.80,
+                               strata = age)
+abalone_train <- training(abalone_split)
+abalone_test <- testing(abalone_split)
+```
 
 ### Question 3
 
@@ -57,9 +99,32 @@ Steps for your recipe:
 
 You'll need to investigate the `tidymodels` documentation to find the appropriate step functions to use.
 
+**Answer**
+
+Following the example about diamonds in lab 2 and looking the help guide for `tidymodels`:
+
+```{r}
+abalone_recipe <- recipe(age ~ ., data = abalone_train) %>%
+  step_rm(rings) %>% # Remove `rings` (step 0)
+  step_dummy(all_nominal_predictors()) %>% # Dummy-code all categorical variables (step 1)
+  step_interact(~ starts_with("type"):shucked_weight + # Interaction between`type` and `shucked_weight` using the dummies for type (step 2)
+                  longest_shell:diameter + # Interaction between `longest_shell` and `diameter` (step 2)
+                  shucked_weight:shell_weight) %>% # Interaction between `shucked_weight` and `shell_weight` (step 1)
+  step_normalize(all_predictors()) # Center and scale (steps 3 and 4)
+```
+
+We can't include `rings` as it would be a mistake. We know that `age` was created as a linear transformation of the number of `rings`, therefore using it as a predictor would mechanically find a significant. This would not allow us to use the results of the regression properly as `rings` mechanically could potentially predict perfectly the value of `age` and possibly our other predictors will be affected. In this case, we want this mechanical relationship between `rings` and `age` to not affect our estimates.
+
 ### Question 4
 
 Create and store a linear regression object using the `"lm"` engine.
+
+Following the example about diamonds in lab 2:
+
+```{r}
+lm_model <- linear_reg() %>%
+  set_engine("lm")
+```
 
 ### Question 5
 
@@ -69,9 +134,31 @@ Now:
 2.  add the model you created in Question 4, and
 3.  add the recipe that you created in Question 3.
 
+**Answer**
+
+Following the example about diamonds in lab 2:
+
+```{r}
+lm_wflow <- workflow() %>% # Set empty workflow (step 1)
+  add_model(lm_model) %>% # Add model created in Q4
+  add_recipe(abalone_recipe) # Add recipe created in Q3
+```
+
+
 ### Question 6
 
 Use your `fit()` object to predict the age of a hypothetical female abalone with longest_shell = 0.50, diameter = 0.10, height = 0.30, whole_weight = 4, shucked_weight = 1, viscera_weight = 2, shell_weight = 1.
+
+First, we need to run our fit model. Second, we can store the conditions needed in a tibble and then use them to predict the values. Finally, we can combine those two to produce the prediction as follows:
+
+```{r}
+lm_fit <- fit(lm_wflow, abalone_train)
+predict_values <- tibble(type = "F", longest_shell = 0.50, diameter = 0.1,
+                         height = 0.30, whole_weight = 4, shucked_weight = 1, 
+                         viscera_weight = 2, shell_weight = 1, rings = 0)
+predict(lm_fit, new_data = predict_values)
+```
+This indicates that the predicted age of the hypothetical female abalone with those features is about 23.7 years.
 
 ### Question 7
 
@@ -80,6 +167,19 @@ Now you want to assess your model's performance. To do this, use the `yardstick`
 1.  Create a metric set that includes *R^2^*, RMSE (root mean squared error), and MAE (mean absolute error).
 2.  Use `predict()` and `bind_cols()` to create a tibble of your model's predicted values from the **training data** along with the actual observed ages (these are needed to assess your model's performance).
 3.  Finally, apply your metric set to the tibble, report the results, and interpret the *R^2^* value.
+
+**Answer**
+
+As in previous questions, following lab 2:
+
+```{r}
+abalone_metrics <- metric_set(rmse, rsq, mae) # Metric set (step 1)
+
+abalone_predict <- predict(lm_fit, abalone_train) %>% 
+  bind_cols(abalone_train %>% select(age)) # Tibble with the predicted and observed values (step 2)
+
+abalone_metrics(abalone_predict, truth = age, estimate = .pred)
+```
 
 ### Required for 231 Students
 
@@ -99,9 +199,50 @@ where the underlying model $Y=f(X)+\epsilon$ satisfies the following:
 
 Which term(s) in the bias-variance tradeoff above represent the reproducible error? Which term(s) represent the irreducible error?
 
+**Reducible error**
+
+The reducible error is the represented by the combination of the terms related to the variance and the bias given by:
+
+$$ \text{Var}(\hat{f}(\mathbf{x_{0}})) + \left[\text{Bias}(\hat{f}(\mathbf{x_{0}))} \right]^{2} $$
+where $$ \text{Var}(\hat{f}(\mathbf{x_{0}}))$$ represents the variace and $$\left[\text{Bias}(\hat{f}(\mathbf{x_{0}))} \right]^{2} $$ represents the bias squared.
+
+**Irreducible error**
+
+The irreducible error is represented by the following term:
+$$\text{Var}(\epsilon)$$ 
+
 #### Question 9
 
 Using the bias-variance tradeoff above, demonstrate that the expected test error is always at least as large as the irreducible error.
+
+**Answer** 
+
+Let's think about the ideal case in which we minimized both the bias and variance, even more we manage to get a model in which they are 0. Therefore: $$ \text{Var}(\hat{f}(\mathbf{x_{0}})) + \left[\text{Bias}(\hat{f}(\mathbf{x_{0}))} \right]^{2} = 0$$ and:
+
+$$ \begin{align*}
+
+E\left[\left( y_{0} - \hat{f}(\mathbf{x_{0}}) \right)^{2}\right] &= \text{Var}(\hat{f}(\mathbf{x_{0}})) + \left[\text{Bias}(\hat{f}(\mathbf{x_{0}))} \right]^{2} + \text{Var}(\epsilon) \\
+        
+        E\left[\left( y_{0} - \hat{f}(\mathbf{x_{0}}) \right)^{2}\right] &= 0 + \text{Var}(\epsilon) \\
+        
+        E\left[\left( y_{0} - \hat{f}(\mathbf{x_{0}}) \right)^{2}\right] &= \text{Var}(\epsilon)
+        
+\end{align*}$$
+        
+This shows that the expected test error is exactly equal to the irreducible error. So we manage to shows that in some cases it is as large as the irreducible error.
+
+Now, let's think again about the case in which the reducible error is not 0 but only minimized, then: $$ \text{Var}(\hat{f}(\mathbf{x_{0}})) + \left[\text{Bias}(\hat{f}(\mathbf{x_{0}))} \right]^{2} > 0$$ and:
+
+$$ \begin{align*}
+E\left[\left( y_{0} - \hat{f}(\mathbf{x_{0}}) \right)^{2}\right] &= \text{Var}(\hat{f}(\mathbf{x_{0}})) + \left[\text{Bias}(\hat{f}(\mathbf{x_{0}))} \right]^{2} + \text{Var}(\epsilon) \\
+
+E\left[\left( y_{0} - \hat{f}(\mathbf{x_{0}}) \right)^{2}\right] &> \text{Var}(\epsilon)
+\end{align*}$$
+
+The last inequality follows from the reducible error being greater than 0, therefore we know it must be that the expected test error is greater than the irreducible error as we are adding something strictly positive to it.
+
+Therefore, we have shown that the expected test error can be equal to the irreducible error or larger than it which proves the statement: "the expected test error is always at least as large as the irreducible error."
+
 
 #### Question 10
 
@@ -111,3 +252,81 @@ Hints:
 
 - use the definition of $Bias(\hat{f}(x_0))=E[\hat{f}(x_0)]-f(x_0)$;
 - reorganize terms in the expected test error by adding and subtracting $E[\hat{f}(x_0)]$
+
+**Proof**
+
+$$ 
+\begin{align*}
+&E\left[\left( y_{0} - \hat{f}(\mathbf{x_{0}}) \right)^{2}\right] \\
+
+
+&= E\left[ \left( f(\mathbf{x}_{0}) + \epsilon - \hat{f}(\mathbf{x_{0}}) \right)^{2}  \right] \tag{by model} \\
+
+&= E\left[ \left( f(\mathbf{x}_{0}) - \hat{f}(\mathbf{x_{0}}) \right)^{2}  \right] + E\left[ \epsilon ^{2}  \right] + 2 E\left[ \left( f(\mathbf{x}_{0}) - \hat{f}(\mathbf{x_{0}}) \right) \epsilon \right] \tag{linearity of expected value} \\
+
+&= E\left[ \left( f(\mathbf{x}_{0}) - \hat{f}(\mathbf{x_{0}}) \right)^{2}  \right] + \text{Var}(\epsilon) + 2 E\left[ \left( f(\mathbf{x}_{0}) - \hat{f}(\mathbf{x_{0}}) \right) \right]  E\left[ \epsilon \right] \tag{def of variance}\\
+
+&= E\left[ \left( f(\mathbf{x}_{0}) - \hat{f}(\mathbf{x_{0}}) \right)^{2}  \right] + \text{Var}(\epsilon)  \tag{by zero-mean random noise}\\
+
+\end{align*}
+
+$$
+
+Now let's focus only on the first term in the last equality:
+
+$$
+\begin{align*}
+&E\left[ \left( f(\mathbf{x}_{0}) - \hat{f}(\mathbf{x_{0}}) \right)^{2}  \right] \\
+
+&= E\left[ \left( \left(f(\mathbf{x}_{0}) - E[\hat{f}(\mathbf{x}_{0})]\right) - \left(\hat{f}(\mathbf{x_{0}}) - E[\hat{f}(\mathbf{x}_{0})] \right) \right)^{2}  \right] \tag{by hint} \\
+
+&= E\left[ \left( E[\hat{f}(\mathbf{x}_{0})] - f(\mathbf{x}_{0}) \right)^{2}  \right] + E\left[ \left( \hat{f}(\mathbf{x_{0}}) - E[\hat{f}(\mathbf{x}_{0})]  \right)^{2}  \right] \\
+
+& \ \ \ \ \ - 2 E\left[ \left( f(\mathbf{x}_{0}) - E[\hat{f}(\mathbf{x}_{0})] \right) \left( \hat{f}(\mathbf{x_{0}}) - E[\hat{f}(\mathbf{x}_{0})]  \right) \right] \tag{algebra} \\
+
+&= \left( E[\hat{f}(\mathbf{x}_{0})] - f(\mathbf{x}_{0}) \right)^{2}  + E\left[ \left( \hat{f}(\mathbf{x_{0}}) - E[\hat{f}(\mathbf{x}_{0})]  \right)^{2}  \right] \\
+
+& \ \ \ \ \ - 2 \left( f(\mathbf{x}_{0}) - E[\hat{f}(\mathbf{x}_{0})] \right) E\left[  \left( \hat{f}(\mathbf{x_{0}}) - E[\hat{f}(\mathbf{x}_{0})]  \right) \right] \tag{algebra} \\
+
+\\
+
+&\text{The last equality holds because we know that } E[\hat{f}(\mathbf{x}_{0})] \text{ and } f(\mathbf{x}_{0}) \text{ are constant.} \\
+&\text{Therefore, the expected value is also constant and it is actually equal to the bias} \\
+
+\\
+
+&= \left( \text{Bias}(\hat{f}(\mathbf{x}_{0})) \right)^{2} + \text{Var}(\hat{f}(\mathbf{x_{0}})) \\
+
+& \ \ \ \ \ - 2 \left( f(\mathbf{x}_{0}) - E[\hat{f}(\mathbf{x}_{0})] \right) E\left[  \left( \hat{f}(\mathbf{x_{0}}) - E[\hat{f}(\mathbf{x}_{0})]  \right) \right] \tag{def of variance} \\
+
+&= \left( \text{Bias}(\hat{f}(\mathbf{x}_{0})) \right)^{2} + \text{Var}(\hat{f}(\mathbf{x_{0}})) \\
+
+& \ \ \ \ \ - 2 \left( f(\mathbf{x}_{0}) - E[\hat{f}(\mathbf{x}_{0})] \right) \left(  E\left[   \hat{f}(\mathbf{x_{0}}) \right] - E\left[  E[\hat{f}(\mathbf{x}_{0})]  \right] \right) \tag{linearity of expectation} \\
+
+&= \left( \text{Bias}(\hat{f}(\mathbf{x}_{0})) \right)^{2} + \text{Var}(\hat{f}(\mathbf{x_{0}})) \\
+
+& \ \ \ \ \ - 2 \left( f(\mathbf{x}_{0}) - E[\hat{f}(\mathbf{x}_{0})] \right) \left(  E\left[   \hat{f}(\mathbf{x_{0}}) \right] -   E\left[ \hat{f}(\mathbf{x}_{0}) \right]  \right) \tag{expectation of constant} \\
+
+&= \left( \text{Bias}(\hat{f}(\mathbf{x}_{0})) \right)^{2} + \text{Var}(\hat{f}(\mathbf{x_{0}})) \tag{algebra}
+
+\end{align*}
+$$
+
+The last equaility holds because $$2 \left( f(\mathbf{x}_{0}) - E[\hat{f}(\mathbf{x}_{0})] \right) \left(  E\left[   \hat{f}(\mathbf{x_{0}}) \right] -   E\left[ \hat{f}(\mathbf{x}_{0}) \right]  \right) = 0 $$
+
+
+Finally, we can put together the two equations as follows:
+
+$$ 
+\begin{align*}
+&E\left[\left( y_{0} - \hat{f}(\mathbf{x_{0}}) \right)^{2}\right] \\
+
+&= E\left[ \left( f(\mathbf{x}_{0}) - \hat{f}(\mathbf{x_{0}}) \right)^{2}  \right] + \text{Var}(\epsilon)  \tag{previous result}\\
+
+&= \left( \text{Bias}(\hat{f}(\mathbf{x}_{0})) \right)^{2} + \text{Var}(\hat{f}(\mathbf{x_{0}})) + \text{Var}(\epsilon)  \tag{previous result}\\
+
+\end{align*}
+
+$$
+
+This completes the proof of the bias-variance tradeoff.
