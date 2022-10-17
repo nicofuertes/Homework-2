@@ -1679,7 +1679,7 @@ guide for <code>tidymodels</code>:</p>
   step_dummy(all_nominal_predictors()) %&gt;% # Dummy-code all categorical variables (step 1)
   step_interact(~ starts_with(&quot;type&quot;):shucked_weight + # Interaction between`type` and `shucked_weight` using the dummies for type (step 2)
                   longest_shell:diameter + # Interaction between `longest_shell` and `diameter` (step 2)
-                  shucked_weight:shell_weight) %&gt;% # Interaction between `shucked_weight` and `shell_weight` (step 1)
+                  shucked_weight:shell_weight) %&gt;% # Interaction between `shucked_weight` and `shell_weight` (step 2)
   step_normalize(all_predictors()) # Center and scale (steps 3 and 4)</code></pre>
 <p>We can’t include <code>rings</code> as it would be a mistake. We know
 that <code>age</code> was created as a linear transformation of the
@@ -1762,13 +1762,19 @@ and interpret the <em>R<sup>2</sup></em> value.</li>
 abalone_predict &lt;- predict(lm_fit, abalone_train) %&gt;% 
   bind_cols(abalone_train %&gt;% select(age)) # Tibble with the predicted and observed values (step 2)
 
-abalone_metrics(abalone_predict, truth = age, estimate = .pred)</code></pre>
+abalone_metrics(abalone_predict, truth = age, estimate = .pred) # Apply metric and report results</code></pre>
 <pre><code>## # A tibble: 3 × 3
 ##   .metric .estimator .estimate
 ##   &lt;chr&gt;   &lt;chr&gt;          &lt;dbl&gt;
 ## 1 rmse    standard       2.16 
 ## 2 rsq     standard       0.551
 ## 3 mae     standard       1.55</code></pre>
+<p>From the previous table, we can observed that the <span class="math inline">\(R^2\)</span> is low. For this particular model, we
+know that 54.7% of the variation in the age of the abolones is captured
+and explained by our model and our predictors. This value suggests that
+our data does not fit the regression model very well. Possibly, it
+reflects that we should not run a linear regression model and that the
+linear model is not an accurate representation of <code>f()</code>.</p>
 </div>
 <div id="required-for-231-students" class="section level3">
 <h3>Required for 231 Students</h3>

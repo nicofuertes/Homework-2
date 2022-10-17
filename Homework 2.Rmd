@@ -109,7 +109,7 @@ abalone_recipe <- recipe(age ~ ., data = abalone_train) %>%
   step_dummy(all_nominal_predictors()) %>% # Dummy-code all categorical variables (step 1)
   step_interact(~ starts_with("type"):shucked_weight + # Interaction between`type` and `shucked_weight` using the dummies for type (step 2)
                   longest_shell:diameter + # Interaction between `longest_shell` and `diameter` (step 2)
-                  shucked_weight:shell_weight) %>% # Interaction between `shucked_weight` and `shell_weight` (step 1)
+                  shucked_weight:shell_weight) %>% # Interaction between `shucked_weight` and `shell_weight` (step 2)
   step_normalize(all_predictors()) # Center and scale (steps 3 and 4)
 ```
 
@@ -180,8 +180,10 @@ abalone_metrics <- metric_set(rmse, rsq, mae) # Metric set (step 1)
 abalone_predict <- predict(lm_fit, abalone_train) %>% 
   bind_cols(abalone_train %>% select(age)) # Tibble with the predicted and observed values (step 2)
 
-abalone_metrics(abalone_predict, truth = age, estimate = .pred)
+abalone_metrics(abalone_predict, truth = age, estimate = .pred) # Apply metric and report results
 ```
+
+From the previous table, we can observed that the $R^2$ is low. For this particular model, we know that 54.7% of the variation in the age of the abolones is captured and explained by our model and our predictors. This value suggests that our data does not fit the regression model very well. Possibly, it reflects that we should not run a linear regression model and that the linear model is not an accurate representation of `f()`.
 
 ### Required for 231 Students
 
