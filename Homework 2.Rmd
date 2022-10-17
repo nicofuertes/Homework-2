@@ -183,7 +183,7 @@ abalone_predict <- predict(lm_fit, abalone_train) %>%
 abalone_metrics(abalone_predict, truth = age, estimate = .pred) # Apply metric and report results
 ```
 
-From the previous table, we can observed that the $R^2$ is low. For this particular model, we know that 54.7% of the variation in the age of the abolones is captured and explained by our model and our predictors. This value suggests that our data does not fit the regression model very well. Possibly, it reflects that we should not run a linear regression model and that the linear model is not an accurate representation of `f()`.
+From the previous table, we can observed that the $R^2$ is low. For this particular model, we know that 54.7% of the variation in the age of the abalones is captured and explained by our model and our predictors. This value suggests that our data does not fit the regression model very well. Possibly, it reflects that we should not run a linear regression model and that the linear model is not an accurate representation of `f()`. 
 
 ### Required for 231 Students
 
