@@ -115,6 +115,8 @@ abalone_recipe <- recipe(age ~ ., data = abalone_train) %>%
 
 We can't include `rings` as it would be a mistake. We know that `age` was created as a linear transformation of the number of `rings`, therefore using it as a predictor would mechanically find a significant. This would not allow us to use the results of the regression properly as `rings` mechanically could potentially predict perfectly the value of `age` and possibly our other predictors will be affected. In this case, we want this mechanical relationship between `rings` and `age` to not affect our estimates.
 
+Additionally, a non-econometric problem is that for us to be able to use `rings` information we need to kill the abalone as we discussed in class to actually be able to count the number of `rings`. Therefore, accounting for that, we would like to have a model that is able to accurately predict the `age` without having the information about the `rings`.
+
 ### Question 4
 
 Create and store a linear regression object using the `"lm"` engine.
