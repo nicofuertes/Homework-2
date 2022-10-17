@@ -1,5 +1,5 @@
 ---
-title: "Homework 1"
+title: "Homework 2"
 author: "PSTAT 231"
 date: '2022-10-16'
 output:
@@ -258,7 +258,6 @@ Hints:
 $$ 
 \begin{align*}
 &E\left[\left( y_{0} - \hat{f}(\mathbf{x_{0}}) \right)^{2}\right] \\
-
 
 &= E\left[ \left( f(\mathbf{x}_{0}) + \epsilon - \hat{f}(\mathbf{x_{0}}) \right)^{2}  \right] \tag{by model} \\
 
